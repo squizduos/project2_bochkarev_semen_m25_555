@@ -4,6 +4,7 @@ import shlex
 import prompt
 from prettytable import PrettyTable
 
+from src.primitive_db.constants import METADATA_FILE
 from src.primitive_db.core import (
     create_table,
     delete,
@@ -11,19 +12,18 @@ from src.primitive_db.core import (
     info,
     insert,
     list_tables,
-    parse_set_clause,
-    parse_where_clause,
     select,
     update,
 )
+from src.primitive_db.decorators import create_cacher
+from src.primitive_db.parser import parse_set_clause, parse_where_clause
 from src.primitive_db.utils import (
     load_metadata,
     load_table_data,
     save_metadata,
     save_table_data,
 )
-
-METADATA_FILE = 'db_meta.json'
+cache_result = create_cacher()
 
 
 def print_help():
@@ -237,6 +237,7 @@ def run():
             
             table_data.append(record)
             save_table_data(table_name, table_data)
+            cache_result.clear()
             msg = (
                 f'Запись с ID={record["ID"]} '
                 f'успешно добавлена в таблицу "{table_name}".'
@@ -255,7 +256,11 @@ def run():
                 continue
             
             table_data = load_table_data(table_name)
-            filtered_data = select(table_data, where_clause)
+            cache_key = (table_name, str(where_clause) if where_clause else None)
+            filtered_data = cache_result(
+                cache_key,
+                lambda: select(table_data, where_clause)
+            )
             display_table(filtered_data, metadata, table_name)
         
         elif user_input.lower().startswith('update'):
@@ -276,6 +281,7 @@ def run():
             
             if updated_count > 0:
                 save_table_data(table_name, table_data)
+                cache_result.clear()
                 for record_id in updated_ids:
                     msg = (
                         f'Запись с ID={record_id} в таблице "{table_name}" '
@@ -301,6 +307,7 @@ def run():
             
             if deleted_count > 0:
                 save_table_data(table_name, table_data)
+                cache_result.clear()
                 for record_id in deleted_ids:
                     msg = (
                         f'Запись с ID={record_id} '

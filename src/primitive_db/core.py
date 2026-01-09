@@ -1,68 +1,9 @@
-VALID_TYPES = {'int', 'str', 'bool'}
-
-
-def parse_where_clause(where_str):
-    if not where_str or '=' not in where_str:
-        return None
-    
-    parts = where_str.split('=', 1)
-    if len(parts) != 2:
-        return None
-    
-    column = parts[0].strip()
-    value_str = parts[1].strip()
-    
-    if value_str.startswith('"') and value_str.endswith('"'):
-        value = value_str[1:-1]
-    elif value_str.startswith("'") and value_str.endswith("'"):
-        value = value_str[1:-1]
-    else:
-        if value_str.lower() == 'true':
-            value = True
-        elif value_str.lower() == 'false':
-            value = False
-        else:
-            try:
-                value = int(value_str)
-            except ValueError:
-                value = value_str
-    
-    return {column: value}
-
-
-def parse_set_clause(set_str):
-    result = {}
-    assignments = set_str.split(',')
-    
-    for assignment in assignments:
-        if '=' not in assignment:
-            continue
-        
-        parts = assignment.split('=', 1)
-        if len(parts) != 2:
-            continue
-        
-        column = parts[0].strip()
-        value_str = parts[1].strip()
-        
-        if value_str.startswith('"') and value_str.endswith('"'):
-            value = value_str[1:-1]
-        elif value_str.startswith("'") and value_str.endswith("'"):
-            value = value_str[1:-1]
-        else:
-            if value_str.lower() == 'true':
-                value = True
-            elif value_str.lower() == 'false':
-                value = False
-            else:
-                try:
-                    value = int(value_str)
-                except ValueError:
-                    value = value_str
-        
-        result[column] = value
-    
-    return result
+from src.primitive_db.constants import VALID_TYPES
+from src.primitive_db.decorators import (
+    handle_db_errors,
+    confirm_action,
+    log_time,
+)
 
 
 def convert_value_type(value, target_type):
@@ -79,6 +20,7 @@ def convert_value_type(value, target_type):
     return value
 
 
+@handle_db_errors
 def validate_record(record, metadata, table_name):
     columns = metadata[table_name]
     
@@ -99,6 +41,7 @@ def validate_record(record, metadata, table_name):
     return True, None
 
 
+@handle_db_errors
 def create_table(metadata, table_name, columns):
     if table_name in metadata:
         print(f'Ошибка: Таблица "{table_name}" уже существует.')
@@ -129,6 +72,8 @@ def create_table(metadata, table_name, columns):
     return metadata
 
 
+@confirm_action("удаление таблицы")
+@handle_db_errors
 def drop_table(metadata, table_name):
     if table_name not in metadata:
         print(f'Ошибка: Таблица "{table_name}" не существует.')
@@ -147,6 +92,8 @@ def list_tables(metadata):
     return list(metadata.keys())
 
 
+@log_time
+@handle_db_errors
 def insert(metadata, table_name, values):
     if table_name not in metadata:
         print(f'Ошибка: Таблица "{table_name}" не существует.')
@@ -174,21 +121,15 @@ def insert(metadata, table_name, values):
         elif value_str.startswith("'") and value_str.endswith("'"):
             value = value_str[1:-1]
         else:
-            try:
-                value = convert_value_type(value_str, col_type)
-            except (ValueError, TypeError):
-                msg = (
-                    f'Ошибка: Не удалось преобразовать значение "{value_str}" '
-                    f'в тип {col_type} для столбца {col_name}.'
-                )
-                print(msg)
-                return None
+            value = convert_value_type(value_str, col_type)
         
         record[col_name] = value
     
     return record
 
 
+@log_time
+@handle_db_errors
 def select(table_data, where_clause=None):
     if where_clause is None:
         return table_data
@@ -206,6 +147,7 @@ def select(table_data, where_clause=None):
     return filtered
 
 
+@handle_db_errors
 def update(table_data, metadata, table_name, set_clause, where_clause):
     if table_name not in metadata:
         return table_data, 0, []
@@ -249,6 +191,8 @@ def update(table_data, metadata, table_name, set_clause, where_clause):
     return table_data, updated_count, updated_ids
 
 
+@confirm_action("удаление записи")
+@handle_db_errors
 def delete(table_data, where_clause):
     deleted_count = 0
     deleted_ids = []
@@ -270,6 +214,7 @@ def delete(table_data, where_clause):
     return filtered, deleted_count, deleted_ids
 
 
+@handle_db_errors
 def info(metadata, table_name, table_data):
     if table_name not in metadata:
         print(f'Ошибка: Таблица "{table_name}" не существует.')

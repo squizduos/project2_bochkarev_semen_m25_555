@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "project2-bochkarev-semen-m25-555"
 version = "0.1.0"
-description = ""
-authors = ["Your Name <you@example.com>"]
+description = "Примитивная база данных для управления таблицами и данными"
+authors = ["Semen Bochkarev <squiz@example.com>"]
 readme = "README.md"
 packages = [
     { include = "src" },

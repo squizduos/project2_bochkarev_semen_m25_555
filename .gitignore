@@ -26,3 +26,7 @@ poetry.lock
 # OS
 .DS_Store
 Thumbs.db
+
+# Database files
+db_meta.json
+data/
